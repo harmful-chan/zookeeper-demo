@@ -3,7 +3,6 @@ zookeeper操作文档以及实验
 <br><br>
 
 ## 本地单机运行
----
 ### 1. 下载安装，设置代理
 ```shell
 wget http://archive.apache.org/dist/zookeeper/zookeeper-3.4.12/zookeeper-3.4.12.tar.gz -e "http_proxy=http://192.168.28.99:1081"
@@ -34,7 +33,6 @@ bin/zkCli.sh
 <br>
 
 ## 本地集群运行
----
 ps: 请先启动3台服务器并解压好zookeeper-3.4.12
 ### 1. 修改zoo.cfg并拷贝到三台服务器的 zookeeper-3.4.12/conf 下
 ```shell
@@ -62,7 +60,6 @@ bin/zkCli -server ip1:2181,ip2:2181,ip3:2181
 <br>
 
 ## Docker单机运行
----
 ### 1. 拉取zookeeper镜像
 ```shell
 sudo docker pull zookeeper:3.4.14
@@ -85,7 +82,6 @@ sudo docker run -it --rm --link some-zookeeper:zookeeper zookeeper:3.4.14 zkCli.
 <br>
 
 ## Docker集群运行
----
 ### 1. linux环境下先安装docker-compose
 ```shell
 sudo curl -L https://get.daocloud.io/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
@@ -95,15 +91,17 @@ sudo chmod +x /usr/local/bin/docker-compose
 ### 2. 编写docker-compose.yml
 ```shell
 vi docker-compose.yml
+```
+```shell
 version: '2'
 services:
     zoo1:
         image: zookeeper:3.4.14
-        restart: always
-        container_name: zoo1
+        restart: always    #关闭自动重启
+        container_name: zoo1    #容器名
         ports:
-            - "2181:2181"
-        environment:
+            - "2181":"2181"
+        environment:    #myid，从机地址端口
             ZOO_MY_ID: 1
             ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
  
@@ -112,7 +110,7 @@ services:
         restart: always
         container_name: zoo2
         ports:
-            - "2182:2181"
+            - "2182":"2181"
         environment:
             ZOO_MY_ID: 2
             ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
@@ -122,18 +120,48 @@ services:
         restart: always
         container_name: zoo3
         ports:
-            - "2183:2181"
+            - "2183":"2181"
         environment:
             ZOO_MY_ID: 3
             ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+
+    zoo_cli:    #zk客户端
+        image: zookeeper:3.4.14
+        restart: always
+        container_name: zoo_cli
+        depends_on:
+            - zoo1
+            - zoo2
+            - zoo3
 ```
 
-### 3. 运行docker-compose
+### 3. 启动容器
 ```shell
-sudo COMPOSE_PROJECT_NAME=zk_test docker-compose up
+sudo COMPOSE_PROJECT_NAME=zk_test docker-compose up -d 
+# 网络命名默认规则：<COMPOSE_PROJECT_NAME>_<NETWORKS>
+# 如果NETWORKS没有定义，那么就是default。
+# 如果COMPOSE_PROJECT_NAME没有定义，那么就是当前路径名(取前缀)。
+# -d 后台运行
 ```
 
-### 4. 
+### 4. 用zoo_cli连接服务端
+```shell
+sudo docker-compose exec zoo_cli zhCli.sh zoo1:2181,zoo2:2181,zoo3:2181
+```
+
+### 5. 停止删除容器及其他设备
+```shell
+sudo docker-compose down 
+```
+<br>
+
+## 查看zookeeper服务器状态（测试工具）
+```shell
+echo stat | nc 127.0.0.1 2181
+# nc 连接本地2181端口，标准输入发送stat，返回状态信息。其他三台同理更改
+```
+<br>
+
 ## 基本操作
 ps: 请先用zkCli.sh 进入客户端界面
 操作|指令
